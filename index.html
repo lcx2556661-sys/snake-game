@@ -43,38 +43,25 @@
     <canvas id="game"></canvas>
 
     <script>
-      window.__THREE_LOADED__ = false;
-
-      function setStatusMessage(message) {
-        var statusNode = document.getElementById("status");
-        if (statusNode) {
-          statusNode.textContent = message;
+      (function () {
+        function load(src, cb) {
+          var s = document.createElement("script");
+          s.src = src;
+          s.onload = cb;
+          s.onerror = function () {
+            var st = document.getElementById("status");
+            if (st) st.textContent = "❌ 脚本加载失败: " + src + "（请检查 Pages 部署/网络/缓存）";
+            console.error("failed to load", src);
+          };
+          document.body.appendChild(s);
         }
-      }
 
-      window.addEventListener("load", function () {
-        if (!window.THREE) {
-          setStatusMessage("Three.js 加载失败：请检查本地 vendor 文件与路径");
-          var sources = Array.from(document.querySelectorAll("script[src]")).map(function (node) {
-            return node.getAttribute("src");
+        load("vendor/three.min.js", function () {
+          load("vendor/OrbitControls.js", function () {
+            load("game.js");
           });
-          console.error("Three.js missing after window load. script src list:", sources);
-        } else {
-          window.__THREE_LOADED__ = true;
-        }
-      });
+        });
+      })();
     </script>
-
-    <script
-      defer
-      src="vendor/three.min.js"
-      onerror="setStatusMessage('本地 vendor 加载失败：请确认文件存在与路径正确'); console.error('Failed to load vendor/three.min.js');"
-    ></script>
-    <script
-      defer
-      src="vendor/OrbitControls.js"
-      onerror="setStatusMessage('本地 vendor 加载失败：请确认文件存在与路径正确'); console.error('Failed to load vendor/OrbitControls.js');"
-    ></script>
-    <script defer src="game.js"></script>
   </body>
 </html>
