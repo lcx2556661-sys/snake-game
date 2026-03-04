@@ -179,9 +179,28 @@
   }
 
   function placeFood() {
-    do {
-      food = randomGridPosition();
-    } while (snake.some((part) => part.x === food.x && part.y === food.y));
+    const gridTotal = GRID_SIZE * GRID_SIZE;
+    if (snake.length >= gridTotal) {
+      endGame('🎉 通关！棋盘已满，按空格或点击按钮重新开始');
+      return false;
+    }
+
+    let placed = false;
+    for (let attempt = 0; attempt < gridTotal; attempt += 1) {
+      const candidate = randomGridPosition();
+      const occupied = snake.some((part) => part.x === candidate.x && part.y === candidate.y);
+      if (!occupied) {
+        food = candidate;
+        placed = true;
+        break;
+      }
+    }
+
+    if (!placed) {
+      endGame('🎉 通关！已无可用食物位置，按空格或点击按钮重新开始');
+      return false;
+    }
+
     if (!foodMesh) {
       foodMesh = new THREE.Mesh(new THREE.IcosahedronGeometry(0.45, 1), foodMaterial);
       foodMesh.castShadow = true;
@@ -190,6 +209,7 @@
     }
     foodMesh.position.set(food.x + 0.5, 0.65, food.y + 0.5);
     foodLight.position.set(food.x + 0.5, 1.2, food.y + 0.5);
+    return true;
   }
 
   function rebuildSnake() {
@@ -225,8 +245,8 @@
     score = 0;
     scoreEl.textContent = '0';
     rebuildSnake();
-    placeFood();
     running = true;
+    placeFood();
     accumulator = 0;
     if (!(window.THREE && window.THREE.OrbitControls)) {
       statusEl.textContent = '⚠️ OrbitControls 未加载：已禁用鼠标旋转视角';
@@ -236,11 +256,11 @@
     gameOverEl.classList.add('hidden');
   }
 
-  function endGame() {
+  function endGame(message) {
     running = false;
     finalScoreEl.textContent = String(score);
     saveScore();
-    statusEl.textContent = '游戏结束！按空格或点击按钮重新开始';
+    statusEl.textContent = message || '游戏结束！按空格或点击按钮重新开始';
     gameOverEl.classList.remove('hidden');
   }
 
@@ -252,12 +272,17 @@
   function stepGame() {
     direction.copy(queuedDirection);
     const next = snake[0].clone().add(direction);
-    if (!inBounds(next) || snake.some((p) => p.x === next.x && p.y === next.y)) {
+    const willEat = next.x === food.x && next.y === food.y;
+    const bodyToCheck = willEat ? snake : snake.slice(0, -1);
+    const hitSelf = bodyToCheck.some((p) => p.x === next.x && p.y === next.y);
+
+    if (!inBounds(next) || hitSelf) {
       endGame();
       return;
     }
+
     snake.unshift(next);
-    if (next.x === food.x && next.y === food.y) {
+    if (willEat) {
       score += SCORE_PER_FOOD;
       scoreEl.textContent = String(score);
       placeFood();
