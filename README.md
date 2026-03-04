@@ -11,7 +11,7 @@
 - 📱 手机触控方向键
 
 ## GitHub Pages 兼容
-- 使用 CDN `<script>` 直接引入 `three.min.js` 与 `OrbitControls.js`
+- 使用本地 `vendor/three.min.js` 与 `vendor/OrbitControls.js`（无外网依赖）
 - 不依赖 ES module 打包，浏览器可直接运行
 
 ## 操作

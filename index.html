@@ -54,7 +54,7 @@
 
       window.addEventListener("load", function () {
         if (!window.THREE) {
-          setStatusMessage("Three.js 加载失败：请检查 CDN/网络/拦截");
+          setStatusMessage("Three.js 加载失败：请检查本地 vendor 文件与路径");
           var sources = Array.from(document.querySelectorAll("script[src]")).map(function (node) {
             return node.getAttribute("src");
           });
@@ -67,13 +67,13 @@
 
     <script
       defer
-      src="https://cdn.jsdelivr.net/npm/three@0.166.1/build/three.min.js"
-      onerror="setStatusMessage('Three.js CDN 加载失败：请检查网络或拦截设置'); console.error('Failed to load three.min.js');"
+      src="vendor/three.min.js"
+      onerror="setStatusMessage('本地 vendor 加载失败：请确认文件存在与路径正确'); console.error('Failed to load vendor/three.min.js');"
     ></script>
     <script
       defer
-      src="https://cdn.jsdelivr.net/npm/three@0.166.1/examples/js/controls/OrbitControls.js"
-      onerror="setStatusMessage('OrbitControls 加载失败：请检查 CDN/网络/拦截'); console.error('Failed to load OrbitControls.js');"
+      src="vendor/OrbitControls.js"
+      onerror="setStatusMessage('本地 vendor 加载失败：请确认文件存在与路径正确'); console.error('Failed to load vendor/OrbitControls.js');"
     ></script>
     <script defer src="game.js"></script>
   </body>
