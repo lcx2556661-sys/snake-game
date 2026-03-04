@@ -42,13 +42,39 @@
 
     <canvas id="game"></canvas>
 
-    <script src="https://cdn.jsdelivr.net/npm/three@0.166.1/build/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.166.1/examples/js/controls/OrbitControls.js"></script>
     <script>
-      if (!window.THREE) {
-        console.error("Three.js failed to load before game.js. Check CDN/network and script order.");
+      window.__THREE_LOADED__ = false;
+
+      function setStatusMessage(message) {
+        var statusNode = document.getElementById("status");
+        if (statusNode) {
+          statusNode.textContent = message;
+        }
       }
+
+      window.addEventListener("load", function () {
+        if (!window.THREE) {
+          setStatusMessage("Three.js 加载失败：请检查 CDN/网络/拦截");
+          var sources = Array.from(document.querySelectorAll("script[src]")).map(function (node) {
+            return node.getAttribute("src");
+          });
+          console.error("Three.js missing after window load. script src list:", sources);
+        } else {
+          window.__THREE_LOADED__ = true;
+        }
+      });
     </script>
-    <script src="game.js"></script>
+
+    <script
+      defer
+      src="https://cdn.jsdelivr.net/npm/three@0.166.1/build/three.min.js"
+      onerror="setStatusMessage('Three.js CDN 加载失败：请检查网络或拦截设置'); console.error('Failed to load three.min.js');"
+    ></script>
+    <script
+      defer
+      src="https://cdn.jsdelivr.net/npm/three@0.166.1/examples/js/controls/OrbitControls.js"
+      onerror="setStatusMessage('OrbitControls 加载失败：请检查 CDN/网络/拦截'); console.error('Failed to load OrbitControls.js');"
+    ></script>
+    <script defer src="game.js"></script>
   </body>
 </html>

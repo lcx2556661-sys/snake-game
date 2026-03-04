@@ -1,7 +1,27 @@
 if (window.__SNAKE_GAME_BOOTED__) {
-  console.warn("Snake game already booted. Skipping duplicate initialization.");
-} else {
-  window.__SNAKE_GAME_BOOTED__ = true;
+  console.warn("snake boot blocked");
+  const statusEl = document.getElementById("status");
+  if (statusEl) {
+    statusEl.textContent = "游戏脚本重复加载：请检查重复引用 game.js";
+  }
+  throw new Error("Snake game booted twice");
+}
+window.__SNAKE_GAME_BOOTED__ = true;
+
+(function () {
+  const depStatusEl = document.getElementById("status");
+  if (!window.THREE) {
+    if (depStatusEl) {
+      depStatusEl.textContent = "THREE 未加载：three.min.js 可能未先执行";
+    }
+    throw new Error("THREE missing");
+  }
+  if (!THREE.OrbitControls) {
+    if (depStatusEl) {
+      depStatusEl.textContent = "OrbitControls 未加载：OrbitControls.js 可能未先执行";
+    }
+    throw new Error("OrbitControls missing");
+  }
 
 const GRID_SIZE = 18;
 const MOVE_INTERVAL = 170;
@@ -323,5 +343,4 @@ function animate() {
 }
 
 animate();
-
-}
+})();
