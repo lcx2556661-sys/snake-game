@@ -27,13 +27,13 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.shadowMap.enabled = true;
 
-const controls = new THREE.OrbitControls(camera, renderer.domElement);
+const orbitControls = new THREE.OrbitControls(camera, renderer.domElement);
 const controls = new OrbitControls(camera, renderer.domElement);
-controls.enableDamping = true;
-controls.enablePan = false;
-controls.minDistance = 10;
-controls.maxDistance = 34;
-controls.maxPolarAngle = Math.PI / 2.05;
+orbitControls.enableDamping = true;
+orbitControls.enablePan = false;
+orbitControls.minDistance = 10;
+orbitControls.maxDistance = 34;
+orbitControls.maxPolarAngle = Math.PI / 2.05;
 
 scene.add(new THREE.AmbientLight("#93c5fd", 0.35));
 scene.add(new THREE.HemisphereLight("#93c5fd", "#0b1120", 0.9));
