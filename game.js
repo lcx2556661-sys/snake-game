@@ -66,7 +66,7 @@
     }
   } else {
     controls = new THREE.OrbitControls(camera, renderer.domElement);
-    controls.enableDamping = true;
+    controls.enableDamping = window.innerWidth > 768;
     controls.enablePan = false;
     controls.minDistance = 10;
     controls.maxDistance = 34;
@@ -191,9 +191,26 @@
       pos = randomGridPosition();
       attempts += 1;
       if (attempts > gridTotal) {
-        console.warn('food placement failed');
-        endGame('🎉 You Win!');
-        return false;
+        const half = GRID_SIZE / 2;
+        let fallback = null;
+        for (let x = -half; x < half; x += 1) {
+          for (let y = -half; y < half; y += 1) {
+            if (!snake.some((part) => part.x === x && part.y === y)) {
+              fallback = new THREE.Vector2(x, y);
+              break;
+            }
+          }
+          if (fallback) break;
+        }
+
+        if (!fallback) {
+          console.warn('food placement failed');
+          endGame('🎉 You Win!');
+          return false;
+        }
+
+        pos = fallback;
+        break;
       }
     } while (snake.some((part) => part.x === pos.x && part.y === pos.y));
 
@@ -254,6 +271,7 @@
   }
 
   function endGame(message) {
+    if (!running) return;
     running = false;
     finalScoreEl.textContent = String(score);
     saveScore();
@@ -267,6 +285,7 @@
   }
 
   function stepGame() {
+    if (!running) return;
     direction.copy(queuedDirection);
     const next = snake[0].clone().add(direction);
     const willEat = next.x === food.x && next.y === food.y;
@@ -299,22 +318,26 @@
     arrowleft: new THREE.Vector2(-1, 0), a: new THREE.Vector2(-1, 0), arrowright: new THREE.Vector2(1, 0), d: new THREE.Vector2(1, 0),
   };
 
-  function queueDirection(nextDir) {
-    if (!nextDir || (nextDir.x === -direction.x && nextDir.y === -direction.y)) return;
-    queuedDirection = nextDir;
+  function setDirection(newDir) {
+    if (!newDir) return;
+    if (snake.length > 1) {
+      const opposite = newDir.x === -direction.x && newDir.y === -direction.y;
+      if (opposite) return;
+    }
+    queuedDirection.copy(newDir);
   }
 
   window.addEventListener('keydown', (e) => {
     const key = e.key.toLowerCase();
     if (key === ' ') return restart();
-    queueDirection(directionMap[key]);
+    setDirection(directionMap[key]);
   });
 
   touchControls.addEventListener('pointerdown', (event) => {
     const button = event.target.closest('button[data-dir]');
     if (!button) return;
     event.preventDefault();
-    queueDirection(directionMap[button.dataset.dir]);
+    setDirection(directionMap[button.dataset.dir]);
   });
 
   restartBtn.addEventListener('click', restart);
@@ -322,6 +345,9 @@
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
+    if (controls) {
+      controls.enableDamping = window.innerWidth > 768;
+    }
   });
 
   let musicEnabled = true;

@@ -34,3 +34,15 @@ python3 -m http.server 8000
 ## Bugfix
 - 修复自撞误判：非吃食物移动时允许蛇头进入“当前尾巴格”（尾巴同 tick 会移除）。
 - 修复食物生成死循环：棋盘占满或多次尝试失败时直接通关结束，避免卡死。
+
+
+## Final Features
+
+- 3D Snake (Three.js)
+- Keyboard + Touch Controls
+- Local Leaderboard
+- Background Music Toggle
+- GitHub Pages Ready
+- Win condition when board is full
+- Infinite-loop safe food placement
+- Correct tail collision handling
