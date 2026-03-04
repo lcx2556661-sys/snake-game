@@ -1,6 +1,3 @@
-import * as THREE from "https://unpkg.com/three@0.166.1/build/three.module.js";
-import { OrbitControls } from "https://unpkg.com/three@0.166.1/examples/jsm/controls/OrbitControls.js";
-
 const GRID_SIZE = 18;
 const MOVE_INTERVAL = 170;
 const SCORE_PER_FOOD = 10;
