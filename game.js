@@ -1,3 +1,8 @@
+if (window.__SNAKE_GAME_BOOTED__) {
+  console.warn("Snake game already booted. Skipping duplicate initialization.");
+} else {
+  window.__SNAKE_GAME_BOOTED__ = true;
+
 const GRID_SIZE = 18;
 const MOVE_INTERVAL = 170;
 const SCORE_PER_FOOD = 10;
@@ -318,3 +323,5 @@ function animate() {
 }
 
 animate();
+
+}
