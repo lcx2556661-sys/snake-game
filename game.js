@@ -179,42 +179,46 @@
   }
 
   function placeFood() {
-    const gridTotal = GRID_SIZE * GRID_SIZE;
-    if (snake.length >= gridTotal) {
-      endGame('🎉 You Win!');
+    const total = GRID_SIZE * GRID_SIZE;
+
+    if (snake.length >= total) {
+      winGame();
       return false;
     }
 
     let attempts = 0;
-    let pos;
+
     do {
-      pos = randomGridPosition();
+      food = randomGridPosition();
       attempts += 1;
-      if (attempts > gridTotal) {
-        const half = GRID_SIZE / 2;
-        let fallback = null;
-        for (let x = -half; x < half; x += 1) {
-          for (let y = -half; y < half; y += 1) {
-            if (!snake.some((part) => part.x === x && part.y === y)) {
-              fallback = new THREE.Vector2(x, y);
-              break;
-            }
+    } while (
+      snake.some((p) => p.x === food.x && p.y === food.y) &&
+      attempts < total
+    );
+
+    if (attempts >= total && snake.some((p) => p.x === food.x && p.y === food.y)) {
+      const half = GRID_SIZE / 2;
+      for (let x = 0; x < GRID_SIZE; x += 1) {
+        for (let y = 0; y < GRID_SIZE; y += 1) {
+          const gridX = x - half;
+          const gridY = y - half;
+          if (!snake.some((p) => p.x === gridX && p.y === gridY)) {
+            food = new THREE.Vector2(gridX, gridY);
+            break;
           }
-          if (fallback) break;
         }
-
-        if (!fallback) {
-          console.warn('food placement failed');
-          endGame('🎉 You Win!');
-          return false;
+        if (!snake.some((p) => p.x === food.x && p.y === food.y)) {
+          break;
         }
-
-        pos = fallback;
-        break;
       }
-    } while (snake.some((part) => part.x === pos.x && part.y === pos.y));
+    }
 
-    food = pos;
+    if (snake.some((p) => p.x === food.x && p.y === food.y)) {
+      console.warn('food placement failed');
+      winGame();
+      return false;
+    }
+
     if (!foodMesh) {
       foodMesh = new THREE.Mesh(new THREE.IcosahedronGeometry(0.45, 1), foodMaterial);
       foodMesh.castShadow = true;
@@ -270,6 +274,12 @@
     gameOverEl.classList.add('hidden');
   }
 
+  function winGame() {
+    if (!running) return;
+    running = false;
+    statusEl.textContent = '🎉 You Win!';
+  }
+
   function endGame(message) {
     if (!running) return;
     running = false;
@@ -286,26 +296,30 @@
 
   function stepGame() {
     if (!running) return;
-    direction.copy(queuedDirection);
-    const next = snake[0].clone().add(direction);
-    const willEat = next.x === food.x && next.y === food.y;
-    const bodyToCheck = willEat ? snake : snake.slice(0, -1);
-    const hitSelf = bodyToCheck.some((p) => p.x === next.x && p.y === next.y);
 
+    direction.copy(queuedDirection);
+
+    const next = snake[0].clone().add(direction);
+
+    let body = snake;
+    if (!(next.x === food.x && next.y === food.y)) {
+      body = snake.slice(0, snake.length - 1);
+    }
+
+    const hitSelf = body.some((p) => p.x === next.x && p.y === next.y);
     if (!inBounds(next) || hitSelf) {
       endGame();
       return;
     }
 
     snake.unshift(next);
-    if (willEat) {
+
+    if (next.x === food.x && next.y === food.y) {
       score += SCORE_PER_FOOD;
       scoreEl.textContent = String(score);
       const placed = placeFood();
       syncSnake();
-      if (!placed) {
-        return;
-      }
+      if (!placed) return;
     } else {
       snake.pop();
       syncSnake();
