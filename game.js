@@ -181,7 +181,7 @@
   function placeFood() {
     const gridTotal = GRID_SIZE * GRID_SIZE;
     if (snake.length >= gridTotal) {
-      endGame('🎉 胜利！棋盘已填满');
+      endGame('🎉 You Win!');
       return false;
     }
 
@@ -192,7 +192,7 @@
       attempts += 1;
       if (attempts > gridTotal) {
         console.warn('food placement failed');
-        endGame('🎉 胜利！棋盘已填满');
+        endGame('🎉 You Win!');
         return false;
       }
     } while (snake.some((part) => part.x === pos.x && part.y === pos.y));
