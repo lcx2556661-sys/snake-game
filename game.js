@@ -1,20 +1,20 @@
-if (window.__SNAKE_GAME_BOOTED__) {
-  console.warn("snake boot blocked");
-  const statusEl = document.getElementById("status");
-  if (statusEl) {
-    statusEl.textContent = "游戏脚本重复加载：请检查重复引用 game.js";
+(() => {
+  if (window.__SNAKE_GAME_BOOTED__) {
+    console.warn("Snake already booted, skip duplicate load");
+    const statusEl = document.getElementById("status");
+    if (statusEl) {
+      statusEl.textContent = "检测到重复加载 game.js：已忽略后续脚本执行";
+    }
+    return;
   }
-  throw new Error("Snake game booted twice");
-}
-window.__SNAKE_GAME_BOOTED__ = true;
+  window.__SNAKE_GAME_BOOTED__ = true;
 
-(function () {
   const depStatusEl = document.getElementById("status");
   if (!window.THREE) {
     if (depStatusEl) {
-      depStatusEl.textContent = "THREE 未加载：three.min.js 可能未先执行";
+      depStatusEl.textContent = "THREE 未加载：请检查 vendor/three.min.js 路径是否正确，以及 Pages 是否已部署到包含 vendor 的 commit";
     }
-    throw new Error("THREE missing");
+    throw new Error("THREE not loaded");
   }
   if (!THREE.OrbitControls) {
     if (depStatusEl) {

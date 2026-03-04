@@ -25,3 +25,7 @@
 python3 -m http.server 8000
 ```
 打开 `http://localhost:8000` 即可。
+
+
+## Pages 更新提示
+- 若刚合并后仍看到旧报错，请先强制刷新（`Ctrl+F5` / `Cmd+Shift+R`），或等待 GitHub Pages 部署完成后再访问。
