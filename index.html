@@ -45,6 +45,30 @@
 
     <script>
       (function () {
+        function appendDiag(message) {
+          var el = document.getElementById("diag");
+          if (el) el.textContent += message + "\n";
+          console.log("[DIAG]", message);
+        }
+
+        function showBlockedStatus(extra) {
+          var st = document.getElementById("status");
+          if (st) st.textContent = "❌ 资源被阻止/403：请更换网络（手机热点/家庭网络）或稍后重试";
+          appendDiag(extra);
+        }
+
+        fetch("vendor/three.min.js", { cache: "no-store" })
+          .then(function (response) {
+            if (!response.ok) {
+              showBlockedStatus("vendor/three.min.js fetch failed: HTTP " + response.status);
+            } else {
+              appendDiag("vendor/three.min.js fetch ok: HTTP " + response.status);
+            }
+          })
+          .catch(function (error) {
+            showBlockedStatus("vendor/three.min.js fetch error: " + (error && error.message ? error.message : error));
+          });
+
         function load(src, cb) {
           var s = document.createElement("script");
           s.src = src;
@@ -52,6 +76,7 @@
           s.onerror = function () {
             var st = document.getElementById("status");
             if (st) st.textContent = "❌ 脚本加载失败: " + src + "（请检查 Pages 部署/网络/缓存）";
+            appendDiag("script load error: " + src);
             console.error("failed to load", src);
           };
           document.body.appendChild(s);
