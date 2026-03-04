@@ -181,26 +181,23 @@
   function placeFood() {
     const gridTotal = GRID_SIZE * GRID_SIZE;
     if (snake.length >= gridTotal) {
-      endGame('🎉 通关！棋盘已满，按空格或点击按钮重新开始');
+      endGame('🎉 胜利！棋盘已填满');
       return false;
     }
 
-    let placed = false;
-    for (let attempt = 0; attempt < gridTotal; attempt += 1) {
-      const candidate = randomGridPosition();
-      const occupied = snake.some((part) => part.x === candidate.x && part.y === candidate.y);
-      if (!occupied) {
-        food = candidate;
-        placed = true;
-        break;
+    let attempts = 0;
+    let pos;
+    do {
+      pos = randomGridPosition();
+      attempts += 1;
+      if (attempts > gridTotal) {
+        console.warn('food placement failed');
+        endGame('🎉 胜利！棋盘已填满');
+        return false;
       }
-    }
+    } while (snake.some((part) => part.x === pos.x && part.y === pos.y));
 
-    if (!placed) {
-      endGame('🎉 通关！已无可用食物位置，按空格或点击按钮重新开始');
-      return false;
-    }
-
+    food = pos;
     if (!foodMesh) {
       foodMesh = new THREE.Mesh(new THREE.IcosahedronGeometry(0.45, 1), foodMaterial);
       foodMesh.castShadow = true;
@@ -285,11 +282,15 @@
     if (willEat) {
       score += SCORE_PER_FOOD;
       scoreEl.textContent = String(score);
-      placeFood();
+      const placed = placeFood();
+      syncSnake();
+      if (!placed) {
+        return;
+      }
     } else {
       snake.pop();
+      syncSnake();
     }
-    syncSnake();
   }
 
   const directionMap = {
