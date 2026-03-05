@@ -1,145 +1,68 @@
 (() => {
-  function diag(msg) {
-    const el = document.getElementById('diag');
-    if (el) el.textContent += msg + "\n";
-    console.log('[DIAG]', msg);
-  }
-
-  diag('boot start');
-  diag('location=' + location.href);
-  diag('THREE=' + (!!window.THREE));
-  diag('OrbitControls=' + (!!(window.THREE && window.THREE.OrbitControls)));
-  diag('game.js loaded once guard=' + (!!window.__SNAKE_GAME_BOOTED__));
-
-  if (window.__SNAKE_GAME_BOOTED__) {
-    console.warn('Snake already booted, skip duplicate load');
-    const statusEl = document.getElementById('status');
-    if (statusEl) {
-      statusEl.textContent = '检测到重复加载 game.js：已忽略后续脚本执行';
-    }
-    diag('duplicate boot detected, skip execution');
-    return;
-  }
-  window.__SNAKE_GAME_BOOTED__ = true;
-
-  if (!window.THREE) {
-    diag('ERROR: THREE not loaded. Check vendor/three.min.js path + Pages deployment.');
-    const status = document.getElementById('status');
-    if (status) status.textContent = '❌ THREE 未加载：请检查 vendor/three.min.js 路径与 Pages 部署/缓存';
-    throw new Error('THREE not loaded');
-  }
-
-  const GRID_SIZE = 18;
-  const MOVE_INTERVAL = 170;
+  const GRID_SIZE = 24;
   const SCORE_PER_FOOD = 10;
+  const BASE_MOVE_INTERVAL = 150;
+  const MIN_MOVE_INTERVAL = 60;
+  const SPEED_UP_EVERY_FOOD = 5;
+  const SPEED_STEP = 10;
   const LEADERBOARD_KEY = 'snake3d-leaderboard';
+
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d');
 
   const scoreEl = document.getElementById('score');
   const bestScoreEl = document.getElementById('best-score');
   const finalScoreEl = document.getElementById('final-score');
-  const finalRankEl = document.getElementById('final-rank');
   const statusEl = document.getElementById('status');
   const gameOverEl = document.getElementById('game-over');
   const restartBtn = document.getElementById('restart-btn');
+  const startBtn = document.getElementById('start-btn');
+  const pauseBtn = document.getElementById('pause-btn');
   const touchControls = document.querySelector('.touch-controls');
   const leaderboardListEl = document.getElementById('leaderboard-list');
   const musicToggle = document.getElementById('music-toggle');
 
-  const scene = new THREE.Scene();
-  scene.background = new THREE.Color('#020617');
-  scene.fog = new THREE.Fog('#020617', 14, 40);
-
-  const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 100);
-  camera.position.set(10, 16, 14);
-
-  const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('game'), antialias: true });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-  renderer.setSize(window.innerWidth, window.innerHeight);
-  renderer.outputColorSpace = THREE.SRGBColorSpace;
-  renderer.shadowMap.enabled = true;
-
-  let controls = null;
-  if (!(window.THREE && window.THREE.OrbitControls)) {
-    diag('WARN: OrbitControls not loaded. Disable orbit controls.');
-    if (statusEl) {
-      statusEl.textContent = '⚠️ OrbitControls 未加载：已禁用鼠标旋转视角';
-    }
-  } else {
-    controls = new THREE.OrbitControls(camera, renderer.domElement);
-    controls.enableDamping = window.innerWidth > 768;
-    controls.enablePan = false;
-    controls.minDistance = 10;
-    controls.maxDistance = 34;
-    controls.maxPolarAngle = Math.PI / 2.05;
-  }
-
-  scene.add(new THREE.AmbientLight('#93c5fd', 0.35));
-  scene.add(new THREE.HemisphereLight('#93c5fd', '#0b1120', 0.9));
-  const dirLight = new THREE.DirectionalLight('#ffffff', 1.1);
-  dirLight.position.set(8, 14, 10);
-  dirLight.castShadow = true;
-  dirLight.shadow.mapSize.set(2048, 2048);
-  scene.add(dirLight);
-
-  const floor = new THREE.Mesh(
-    new THREE.PlaneGeometry(GRID_SIZE, GRID_SIZE),
-    new THREE.MeshStandardMaterial({ color: '#0f172a', roughness: 0.95 })
-  );
-  floor.rotation.x = -Math.PI / 2;
-  floor.receiveShadow = true;
-  scene.add(floor, new THREE.GridHelper(GRID_SIZE, GRID_SIZE, '#334155', '#1e293b'));
-
-  const wallMat = new THREE.MeshStandardMaterial({ color: '#1d4ed8', transparent: true, opacity: 0.22 });
-  const walls = [
-    new THREE.Mesh(new THREE.BoxGeometry(GRID_SIZE, 1, 0.15), wallMat),
-    new THREE.Mesh(new THREE.BoxGeometry(GRID_SIZE, 1, 0.15), wallMat),
-    new THREE.Mesh(new THREE.BoxGeometry(0.15, 1, GRID_SIZE), wallMat),
-    new THREE.Mesh(new THREE.BoxGeometry(0.15, 1, GRID_SIZE), wallMat),
-  ];
-  walls[0].position.set(0, 0.5, -GRID_SIZE / 2);
-  walls[1].position.set(0, 0.5, GRID_SIZE / 2);
-  walls[2].position.set(-GRID_SIZE / 2, 0.5, 0);
-  walls[3].position.set(GRID_SIZE / 2, 0.5, 0);
-  scene.add(...walls);
-
-  const snakeMaterial = new THREE.MeshStandardMaterial({ color: '#22c55e' });
-  const headMaterial = new THREE.MeshStandardMaterial({ color: '#4ade80' });
-  const foodMaterial = new THREE.MeshStandardMaterial({ color: '#fb7185', emissive: '#e11d48', emissiveIntensity: 1.3 });
+  const cellSize = Math.floor(canvas.width / GRID_SIZE);
 
   let snake = [];
-  let snakeMeshes = [];
-  let direction = new THREE.Vector2(1, 0);
-  let queuedDirection = direction.clone();
-  let food = new THREE.Vector2(0, 0);
-  let foodMesh;
-  let foodLight;
+  let direction = { x: 1, y: 0 };
+  let queuedDirection = { x: 1, y: 0 };
+  let food = { x: 6, y: 6 };
   let running = false;
+  let started = false;
   let score = 0;
+  let foodsEaten = 0;
+  let moveInterval = BASE_MOVE_INTERVAL;
   let accumulator = 0;
+  let lastTs = performance.now();
+
   let leaderboard = [];
   let storageBlocked = false;
+
+  let musicEnabled = true;
+  let audioCtx;
+  let gain;
+  let oscA;
+  let oscB;
 
   function loadLeaderboard() {
     try {
       const raw = localStorage.getItem(LEADERBOARD_KEY);
       const parsed = raw ? JSON.parse(raw) : [];
       leaderboard = Array.isArray(parsed) ? parsed : [];
-    } catch (error) {
+    } catch {
       storageBlocked = true;
-      diag('storage blocked: ' + (error && error.message ? error.message : error));
       leaderboard = [];
     }
   }
 
   function renderLeaderboard() {
     leaderboardListEl.innerHTML = '';
-
     if (storageBlocked) {
       leaderboardListEl.innerHTML = '<li>隐私模式/拦截导致无法保存</li>';
       bestScoreEl.textContent = '0';
       return;
     }
-
     const top = leaderboard.slice(0, 5);
     if (!top.length) {
       leaderboardListEl.innerHTML = '<li>暂无记录</li>';
@@ -155,159 +78,99 @@
   }
 
   function saveScore() {
+    if (storageBlocked) return;
     leaderboard.push({ score, time: new Date().toLocaleDateString() });
     leaderboard.sort((a, b) => b.score - a.score);
     leaderboard = leaderboard.slice(0, 20);
     try {
       localStorage.setItem(LEADERBOARD_KEY, JSON.stringify(leaderboard));
-    } catch (error) {
+    } catch {
       storageBlocked = true;
-      diag('storage blocked: ' + (error && error.message ? error.message : error));
     }
     renderLeaderboard();
-    if (storageBlocked) {
-      finalRankEl.textContent = '未保存（存储受限）';
-      return;
-    }
-    const rank = leaderboard.findIndex((i) => i.score === score) + 1;
-    finalRankEl.textContent = rank > 0 ? `第 ${rank} 名` : '未上榜';
   }
 
   function randomGridPosition() {
-    const half = GRID_SIZE / 2;
-    return new THREE.Vector2(Math.floor(Math.random() * GRID_SIZE - half), Math.floor(Math.random() * GRID_SIZE - half));
+    return {
+      x: Math.floor(Math.random() * GRID_SIZE),
+      y: Math.floor(Math.random() * GRID_SIZE),
+    };
   }
 
   function placeFood() {
     const total = GRID_SIZE * GRID_SIZE;
-
     if (snake.length >= total) {
       winGame();
       return false;
     }
 
     let attempts = 0;
-
     do {
       food = randomGridPosition();
       attempts += 1;
-    } while (
-      snake.some((p) => p.x === food.x && p.y === food.y) &&
-      attempts < total
-    );
-
-    if (attempts >= total && snake.some((p) => p.x === food.x && p.y === food.y)) {
-      const half = GRID_SIZE / 2;
-      for (let x = 0; x < GRID_SIZE; x += 1) {
-        for (let y = 0; y < GRID_SIZE; y += 1) {
-          const gridX = x - half;
-          const gridY = y - half;
-          if (!snake.some((p) => p.x === gridX && p.y === gridY)) {
-            food = new THREE.Vector2(gridX, gridY);
-            break;
-          }
-        }
-        if (!snake.some((p) => p.x === food.x && p.y === food.y)) {
-          break;
-        }
-      }
-    }
+    } while (snake.some((p) => p.x === food.x && p.y === food.y) && attempts < total);
 
     if (snake.some((p) => p.x === food.x && p.y === food.y)) {
-      console.warn('food placement failed');
+      for (let x = 0; x < GRID_SIZE; x += 1) {
+        for (let y = 0; y < GRID_SIZE; y += 1) {
+          if (!snake.some((p) => p.x === x && p.y === y)) {
+            food = { x, y };
+            return true;
+          }
+        }
+      }
       winGame();
       return false;
     }
 
-    if (!foodMesh) {
-      foodMesh = new THREE.Mesh(new THREE.IcosahedronGeometry(0.45, 1), foodMaterial);
-      foodMesh.castShadow = true;
-      foodLight = new THREE.PointLight('#fb7185', 2.2, 6, 2);
-      scene.add(foodMesh, foodLight);
-    }
-    foodMesh.position.set(food.x + 0.5, 0.65, food.y + 0.5);
-    foodLight.position.set(food.x + 0.5, 1.2, food.y + 0.5);
     return true;
   }
 
-  function rebuildSnake() {
-    snakeMeshes.forEach((m) => scene.remove(m));
-    snakeMeshes = snake.map((_, index) => {
-      const m = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.9, 0.9), index === 0 ? headMaterial : snakeMaterial);
-      m.castShadow = true;
-      scene.add(m);
-      return m;
-    });
+  function setDirection(newDir) {
+    if (!newDir) return;
+    if (snake.length > 1) {
+      const opposite = newDir.x === -direction.x && newDir.y === -direction.y;
+      if (opposite) return;
+    }
+    queuedDirection = { x: newDir.x, y: newDir.y };
   }
 
-  function syncSnake() {
-    snake.forEach((part, i) => {
-      if (!snakeMeshes[i]) {
-        const m = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.9, 0.9), snakeMaterial);
-        m.castShadow = true;
-        scene.add(m);
-        snakeMeshes.push(m);
-      }
-      snakeMeshes[i].material = i === 0 ? headMaterial : snakeMaterial;
-      snakeMeshes[i].position.set(part.x + 0.5, 0.5, part.y + 0.5);
-    });
-    while (snakeMeshes.length > snake.length) {
-      scene.remove(snakeMeshes.pop());
-    }
-  }
-
-  function restart() {
-    snake = [new THREE.Vector2(0, 0), new THREE.Vector2(-1, 0), new THREE.Vector2(-2, 0)];
-    direction = new THREE.Vector2(1, 0);
-    queuedDirection = direction.clone();
-    score = 0;
-    scoreEl.textContent = '0';
-    rebuildSnake();
-    running = true;
-    placeFood();
-    accumulator = 0;
-    if (!(window.THREE && window.THREE.OrbitControls)) {
-      statusEl.textContent = '⚠️ OrbitControls 未加载：已禁用鼠标旋转视角';
-    } else {
-      statusEl.textContent = '游戏进行中...';
-    }
-    gameOverEl.classList.add('hidden');
+  function endGame() {
+    if (!started) return;
+    running = false;
+    started = false;
+    statusEl.textContent = 'Game Over';
+    finalScoreEl.textContent = String(score);
+    saveScore();
+    gameOverEl.classList.remove('hidden');
   }
 
   function winGame() {
-    if (!running) return;
+    if (!started) return;
     running = false;
+    started = false;
     statusEl.textContent = '🎉 You Win!';
-  }
-
-  function endGame(message) {
-    if (!running) return;
-    running = false;
     finalScoreEl.textContent = String(score);
     saveScore();
-    statusEl.textContent = message || '游戏结束！按空格或点击按钮重新开始';
     gameOverEl.classList.remove('hidden');
   }
 
   function inBounds(pos) {
-    const half = GRID_SIZE / 2;
-    return pos.x >= -half && pos.x < half && pos.y >= -half && pos.y < half;
+    return pos.x >= 0 && pos.x < GRID_SIZE && pos.y >= 0 && pos.y < GRID_SIZE;
   }
 
   function stepGame() {
     if (!running) return;
 
-    direction.copy(queuedDirection);
-
-    const next = snake[0].clone().add(direction);
+    direction = { x: queuedDirection.x, y: queuedDirection.y };
+    const next = { x: snake[0].x + direction.x, y: snake[0].y + direction.y };
 
     let body = snake;
     if (!(next.x === food.x && next.y === food.y)) {
       body = snake.slice(0, snake.length - 1);
     }
 
-    const hitSelf = body.some((p) => p.x === next.x && p.y === next.y);
-    if (!inBounds(next) || hitSelf) {
+    if (!inBounds(next) || body.some((p) => p.x === next.x && p.y === next.y)) {
       endGame();
       return;
     }
@@ -316,59 +179,114 @@
 
     if (next.x === food.x && next.y === food.y) {
       score += SCORE_PER_FOOD;
+      foodsEaten += 1;
       scoreEl.textContent = String(score);
-      const placed = placeFood();
-      syncSnake();
-      if (!placed) return;
+      if (foodsEaten % SPEED_UP_EVERY_FOOD === 0) {
+        moveInterval = Math.max(MIN_MOVE_INTERVAL, moveInterval - SPEED_STEP);
+      }
+      placeFood();
     } else {
       snake.pop();
-      syncSnake();
     }
   }
 
-  const directionMap = {
-    up: new THREE.Vector2(0, -1), down: new THREE.Vector2(0, 1), left: new THREE.Vector2(-1, 0), right: new THREE.Vector2(1, 0),
-    arrowup: new THREE.Vector2(0, -1), w: new THREE.Vector2(0, -1), arrowdown: new THREE.Vector2(0, 1), s: new THREE.Vector2(0, 1),
-    arrowleft: new THREE.Vector2(-1, 0), a: new THREE.Vector2(-1, 0), arrowright: new THREE.Vector2(1, 0), d: new THREE.Vector2(1, 0),
-  };
+  function draw() {
+    ctx.fillStyle = '#0b1020';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  function setDirection(newDir) {
-    if (!newDir) return;
-    if (snake.length > 1) {
-      const opposite = newDir.x === -direction.x && newDir.y === -direction.y;
-      if (opposite) return;
+    ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+    ctx.lineWidth = 1;
+    for (let i = 0; i <= GRID_SIZE; i += 1) {
+      const p = i * cellSize;
+      ctx.beginPath();
+      ctx.moveTo(p, 0);
+      ctx.lineTo(p, GRID_SIZE * cellSize);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(0, p);
+      ctx.lineTo(GRID_SIZE * cellSize, p);
+      ctx.stroke();
     }
-    queuedDirection.copy(newDir);
+
+    const cx = food.x * cellSize + cellSize / 2;
+    const cy = food.y * cellSize + cellSize / 2;
+    ctx.fillStyle = '#ff4d4f';
+    ctx.beginPath();
+    ctx.arc(cx, cy, cellSize * 0.32, 0, Math.PI * 2);
+    ctx.fill();
+
+    snake.forEach((part, i) => {
+      const x = part.x * cellSize + 1;
+      const y = part.y * cellSize + 1;
+      ctx.fillStyle = i === 0 ? '#6cf2a1' : '#2ecc71';
+      ctx.fillRect(x, y, cellSize - 2, cellSize - 2);
+    });
+
+    const head = snake[0];
+    if (head) {
+      const hx = head.x * cellSize;
+      const hy = head.y * cellSize;
+      ctx.fillStyle = '#0b1020';
+      const eye = Math.max(2, Math.floor(cellSize * 0.12));
+      const ox = Math.floor(cellSize * 0.26);
+      const oy = Math.floor(cellSize * 0.28);
+      ctx.fillRect(hx + ox, hy + oy, eye, eye);
+      ctx.fillRect(hx + cellSize - ox - eye, hy + oy, eye, eye);
+    }
   }
 
-  window.addEventListener('keydown', (e) => {
-    const key = e.key.toLowerCase();
-    if (key === ' ') return restart();
-    setDirection(directionMap[key]);
-  });
+  function restart() {
+    snake = [
+      { x: 4, y: 12 },
+      { x: 3, y: 12 },
+      { x: 2, y: 12 },
+    ];
+    direction = { x: 1, y: 0 };
+    queuedDirection = { x: 1, y: 0 };
+    score = 0;
+    foodsEaten = 0;
+    moveInterval = BASE_MOVE_INTERVAL;
+    scoreEl.textContent = '0';
+    started = true;
+    running = true;
+    placeFood();
+    statusEl.textContent = 'Running';
+    gameOverEl.classList.add('hidden');
+    lastTs = performance.now();
+    accumulator = 0;
+  }
 
-  touchControls.addEventListener('pointerdown', (event) => {
-    const button = event.target.closest('button[data-dir]');
-    if (!button) return;
-    event.preventDefault();
-    setDirection(directionMap[button.dataset.dir]);
-  });
-
-  restartBtn.addEventListener('click', restart);
-  window.addEventListener('resize', () => {
-    camera.aspect = window.innerWidth / window.innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    if (controls) {
-      controls.enableDamping = window.innerWidth > 768;
+  function startGame() {
+    if (started && running) return;
+    if (!started) {
+      restart();
+      return;
     }
-  });
+    running = true;
+    statusEl.textContent = 'Running';
+  }
 
-  let musicEnabled = true;
-  let audioCtx;
-  let gain;
-  let oscA;
-  let oscB;
+  function pauseGame() {
+    if (!started) return;
+    running = false;
+    statusEl.textContent = 'Paused';
+  }
+
+  function animate(ts) {
+    const delta = ts - lastTs;
+    lastTs = ts;
+
+    if (running) {
+      accumulator += delta;
+      while (accumulator >= moveInterval) {
+        stepGame();
+        accumulator -= moveInterval;
+      }
+    }
+
+    draw();
+    requestAnimationFrame(animate);
+  }
 
   function ensureMusic() {
     if (audioCtx) return;
@@ -379,8 +297,8 @@
     oscB = audioCtx.createOscillator();
     oscA.type = 'triangle';
     oscB.type = 'sine';
-    oscA.frequency.value = 220;
-    oscB.frequency.value = 329.63;
+    oscA.frequency.value = 196;
+    oscB.frequency.value = 293.66;
     oscA.connect(gain);
     oscB.connect(gain);
     gain.connect(audioCtx.destination);
@@ -391,8 +309,9 @@
   function toggleMusic() {
     musicEnabled = !musicEnabled;
     musicToggle.textContent = `🎵 背景音乐：${musicEnabled ? '开' : '关'}`;
-    if (!audioCtx) return;
-    gain.gain.setTargetAtTime(musicEnabled ? 0.03 : 0, audioCtx.currentTime, 0.03);
+    if (audioCtx) {
+      gain.gain.setTargetAtTime(musicEnabled ? 0.03 : 0, audioCtx.currentTime, 0.03);
+    }
   }
 
   musicToggle.addEventListener('click', async () => {
@@ -406,41 +325,43 @@
     if (audioCtx.state === 'suspended') await audioCtx.resume();
   }, { once: true });
 
-  const clock = new THREE.Clock();
+  const directionMap = {
+    arrowup: { x: 0, y: -1 },
+    w: { x: 0, y: -1 },
+    arrowdown: { x: 0, y: 1 },
+    s: { x: 0, y: 1 },
+    arrowleft: { x: -1, y: 0 },
+    a: { x: -1, y: 0 },
+    arrowright: { x: 1, y: 0 },
+    d: { x: 1, y: 0 },
+    up: { x: 0, y: -1 },
+    down: { x: 0, y: 1 },
+    left: { x: -1, y: 0 },
+    right: { x: 1, y: 0 },
+  };
+
+  window.addEventListener('keydown', (e) => {
+    const key = e.key.toLowerCase();
+    if (key === ' ') {
+      restart();
+      return;
+    }
+    setDirection(directionMap[key]);
+  });
+
+  touchControls.addEventListener('pointerdown', (event) => {
+    const button = event.target.closest('button[data-dir]');
+    if (!button) return;
+    event.preventDefault();
+    setDirection(directionMap[button.dataset.dir]);
+  });
+
+  startBtn.addEventListener('click', startGame);
+  pauseBtn.addEventListener('click', pauseGame);
+  restartBtn.addEventListener('click', restart);
+
   loadLeaderboard();
   renderLeaderboard();
-  restart();
-
-  function animate() {
-    requestAnimationFrame(animate);
-    const delta = clock.getDelta() * 1000;
-    if (running) {
-      accumulator += delta;
-      while (accumulator >= MOVE_INTERVAL) {
-        stepGame();
-        accumulator -= MOVE_INTERVAL;
-      }
-    }
-
-    if (foodMesh && foodLight) {
-      const t = performance.now() * 0.003;
-      foodMesh.rotation.y += 0.03;
-      foodMesh.rotation.x += 0.015;
-      foodMaterial.emissiveIntensity = 1.2 + Math.sin(t) * 0.5;
-      foodLight.intensity = 2.2 + Math.sin(t * 1.4) * 0.7;
-    }
-
-    if (audioCtx && musicEnabled) {
-      const t = performance.now() * 0.001;
-      oscA.frequency.value = 220 + Math.sin(t) * 16;
-      oscB.frequency.value = 329.63 + Math.sin(t * 1.7) * 20;
-    }
-
-    if (controls) {
-      controls.update();
-    }
-    renderer.render(scene, camera);
-  }
-
-  animate();
+  draw();
+  requestAnimationFrame(animate);
 })();
