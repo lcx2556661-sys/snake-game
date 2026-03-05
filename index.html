@@ -1,8 +1,5 @@
 <!doctype html>
 <html lang="zh-CN">
-  <script src="https://cdn.jsdelivr.net/npm/three@0.166.1/build/three.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.166.1/examples/js/controls/OrbitControls.js"></script>
-<script src="game.js"></script>
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
@@ -18,7 +15,7 @@
       <p>拖动鼠标可旋转视角，滚轮可缩放</p>
       <button id="music-toggle" type="button">🎵 背景音乐：开</button>
       <p id="status">游戏进行中...</p>
-      <p id="status">按空格开始 / 重新开始</p>
+      <pre id="diag"></pre>
 
       <div class="leaderboard">
         <h3>🏆 排行榜（Top 5）</h3>
@@ -46,9 +43,51 @@
 
     <canvas id="game"></canvas>
 
-    <script src="https://cdn.jsdelivr.net/npm/three@0.166.1/build/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.166.1/examples/js/controls/OrbitControls.js"></script>
-    <script src="game.js"></script>
-    <script src="game.js"></script>
+    <script>
+      (function () {
+        function appendDiag(message) {
+          var el = document.getElementById("diag");
+          if (el) el.textContent += message + "\n";
+          console.log("[DIAG]", message);
+        }
+
+        function showBlockedStatus(extra) {
+          var st = document.getElementById("status");
+          if (st) st.textContent = "❌ 资源被阻止/403：请更换网络（手机热点/家庭网络）或稍后重试";
+          appendDiag(extra);
+        }
+
+        fetch("vendor/three.min.js", { cache: "no-store" })
+          .then(function (response) {
+            if (!response.ok) {
+              showBlockedStatus("vendor/three.min.js fetch failed: HTTP " + response.status);
+            } else {
+              appendDiag("vendor/three.min.js fetch ok: HTTP " + response.status);
+            }
+          })
+          .catch(function (error) {
+            showBlockedStatus("vendor/three.min.js fetch error: " + (error && error.message ? error.message : error));
+          });
+
+        function load(src, cb) {
+          var s = document.createElement("script");
+          s.src = src;
+          s.onload = cb;
+          s.onerror = function () {
+            var st = document.getElementById("status");
+            if (st) st.textContent = "❌ 脚本加载失败: " + src + "（请检查 Pages 部署/网络/缓存）";
+            appendDiag("script load error: " + src);
+            console.error("failed to load", src);
+          };
+          document.body.appendChild(s);
+        }
+
+        load("vendor/three.min.js", function () {
+          load("vendor/OrbitControls.js", function () {
+            load("game.js");
+          });
+        });
+      })();
+    </script>
   </body>
 </html>
