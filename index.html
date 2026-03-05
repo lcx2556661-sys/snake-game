@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>经典 2D 贪吃蛇</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div class="hud">
+      <h1>经典 2D 贪吃蛇</h1>
+      <p>分数：<span id="score">0</span></p>
+      <p>最高分：<span id="best-score">0</span></p>
+      <p>控制：W/A/S/D 或 方向键</p>
+      <p>空格：Restart</p>
+      <div class="actions">
+        <button id="start-btn" type="button">Start</button>
+        <button id="pause-btn" type="button">Pause</button>
+        <button id="restart-btn" type="button">Restart</button>
+      </div>
+      <button id="music-toggle" type="button">🎵 背景音乐：开</button>
+      <p id="status">点击 Start 开始游戏</p>
+
+      <div class="leaderboard">
+        <h3>🏆 排行榜（Top 5）</h3>
+        <ol id="leaderboard-list"></ol>
+      </div>
+    </div>
+
+    <div id="game-over" class="overlay hidden" role="dialog" aria-modal="true">
+      <div class="panel">
+        <h2>GAME OVER</h2>
+        <p>Score: <span id="final-score">0</span></p>
+        <p>Press Space to Restart</p>
+      </div>
+    </div>
+
+    <div class="touch-controls" aria-label="移动控制">
+      <button data-dir="up">↑</button>
+      <div class="mid-row">
+        <button data-dir="left">←</button>
+        <button data-dir="down">↓</button>
+        <button data-dir="right">→</button>
+      </div>
+    </div>
+
+    <main class="game-wrap">
+      <canvas id="game" width="720" height="720"></canvas>
+    </main>
+
+    <script src="game.js"></script>
+  </body>
+</html>
